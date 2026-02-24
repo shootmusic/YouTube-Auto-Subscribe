@@ -89,19 +89,37 @@ class StealthAccountFactory:
         return fingerprint
 
     def create_stealth_driver(self):
-        """Create Chrome instance dengan konfigurasi yang benar"""
+        """Create Chrome instance dengan deteksi environment otomatis"""
         fp = self.generate_fingerprint()
         
-        # Path hardcoded untuk Termux
-        chromedriver_path = '/data/data/com.termux/files/usr/bin/chromedriver'
-        chrome_binary = '/data/data/com.termux/files/usr/lib/chromium/chrome'
+        # === DETEKSI ENVIRONMENT ===
+        is_termux = os.path.exists('/data/data/com.termux/files/usr')
+        is_github_actions = os.getenv('GITHUB_ACTIONS') == 'true'
+        
+        if is_termux:
+            # Path untuk Termux (local debugging)
+            chromedriver_path = '/data/data/com.termux/files/usr/bin/chromedriver'
+            chrome_binary = '/data/data/com.termux/files/usr/lib/chromium/chrome'
+            print("🔧 Environment: Termux")
+        elif is_github_actions:
+            # Path untuk GitHub Actions (Ubuntu)
+            chromedriver_path = '/usr/local/bin/chromedriver'
+            chrome_binary = '/usr/bin/chromium-browser'
+            print("🔧 Environment: GitHub Actions")
+        else:
+            # Fallback: andai jalan di sistem lain
+            chromedriver_path = 'chromedriver'
+            chrome_binary = None
+            print("🔧 Environment: Unknown (using PATH)")
         
         service = Service(chromedriver_path)
         options = Options()
-        options.binary_location = chrome_binary
         
-        # Headless mode - MATIKAN DULU UNTUK DEBUG
-        # options.add_argument('--headless')
+        if chrome_binary:
+            options.binary_location = chrome_binary
+        
+        # Headless mode - matikan untuk debug, nyalakan untuk production
+        options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
