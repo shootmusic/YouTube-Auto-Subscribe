@@ -34,7 +34,6 @@ Fitur utama:
 
 - Python 3.10
 - Selenium
-- undetected-chromedriver
 - GitHub Actions
 - Telegram Bot API
 
@@ -44,8 +43,8 @@ Fitur utama:
 
 1. Fork repository ini
 2. Set secrets di Settings → Secrets and variables → Actions:
-   - TELEGRAM_TOKEN: (isi dengan token bot Telegram Anda)
-   - TELEGRAM_CHAT_ID: (isi dengan chat ID Anda)
+   - `TELEGRAM_TOKEN`: (isi dengan token bot Telegram Anda)
+   - `TELEGRAM_CHAT_ID`: (isi dengan chat ID Anda)
 3. Aktifkan GitHub Actions di tab Actions
 
 ---
@@ -58,6 +57,9 @@ Fitur utama:
 ---
 
 ## Preview Laporan Telegram
+
+```
+
 Produksi 100 akun selesai
 ✅ Berhasil: 98 akun 🍂
 ❌ Gagal: 2

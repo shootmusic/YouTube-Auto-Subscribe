@@ -1,12 +1,13 @@
 # account_factory.py
-import undetected_chromedriver as uc
+from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 import time
 import random
 import json
-import pickle
 import os
 import string
 from datetime import datetime
@@ -47,18 +48,13 @@ class GoogleAccountFactory:
         first = random.choice(first_names)
         last = random.choice(last_names)
         
-        # Random numbers
         nums = ''.join([str(random.randint(0,9)) for _ in range(4)])
-        
-        # Username
         username = f"{first.lower()}.{last.lower()}{nums}"
         email = f"{username}@gmail.com"
         
-        # Password
         chars = string.ascii_letters + string.digits + "!@#$%^&*"
         password = ''.join(random.choice(chars) for _ in range(14))
         
-        # Birthday
         year = random.randint(1985, 2005)
         month = random.randint(1, 12)
         day = random.randint(1, 28)
@@ -74,30 +70,17 @@ class GoogleAccountFactory:
         }
     
     def create_driver(self):
-        options = uc.ChromeOptions()
-        
-        # Untuk GitHub Actions (Ubuntu)
-        options.binary_location = "/usr/bin/chromium-browser"
+        service = Service('/data/data/com.termux/files/usr/bin/chromedriver')
+        options = Options()
+        options.binary_location = '/data/data/com.termux/files/usr/lib/chromium/chrome'
         options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--disable-gpu')
         options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_argument('--window-size=1280,720')
-        
-        # User agent
-        user_agents = [
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-        ]
-        options.add_argument(f'--user-agent={random.choice(user_agents)}')
-        
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option('useAutomationExtension', False)
         
-        driver = uc.Chrome(options=options)
+        driver = webdriver.Chrome(service=service, options=options)
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        driver.execute_script("Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]})")
         
         return driver
     
@@ -111,28 +94,30 @@ class GoogleAccountFactory:
             driver.get("https://accounts.google.com/signup")
             time.sleep(random.uniform(3, 5))
             
-            # First name
+            # First name - pake XPATH based on aria-label
             first_input = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.ID, "firstName"))
+                EC.presence_of_element_located((By.XPATH, "//input[@aria-label='First name']"))
             )
             first_input.send_keys(info['first'])
             time.sleep(0.5)
             
             # Last name
-            last_input = driver.find_element(By.ID, "lastName")
+            last_input = driver.find_element(By.XPATH, "//input[@aria-label='Last name']")
             last_input.send_keys(info['last'])
             time.sleep(0.5)
             
-            # Username
-            username_input = driver.find_element(By.ID, "username")
+            # Username - pake XPATH based on aria-label
+            username_input = driver.find_element(By.XPATH, "//input[@aria-label='Username']")
             username_input.send_keys(info['email'].split('@')[0])
             time.sleep(0.5)
             
             # Password
-            pass_input = driver.find_element(By.NAME, "Passwd")
+            pass_input = driver.find_element(By.XPATH, "//input[@aria-label='Password']")
             pass_input.send_keys(info['password'])
             time.sleep(0.5)
-            confirm_input = driver.find_element(By.NAME, "ConfirmPasswd")
+            
+            # Confirm password
+            confirm_input = driver.find_element(By.XPATH, "//input[@aria-label='Confirm']")
             confirm_input.send_keys(info['password'])
             time.sleep(0.5)
             
@@ -140,25 +125,29 @@ class GoogleAccountFactory:
             driver.find_element(By.XPATH, "//span[text()='Next']").click()
             time.sleep(random.uniform(4, 6))
             
-            # Personal info
+            # Personal info - Month
             month_input = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.ID, "month"))
+                EC.presence_of_element_located((By.XPATH, "//select[@aria-label='Month']"))
             )
             month_input.send_keys(info['birthday'].split('-')[1])
             time.sleep(0.3)
             
-            day_input = driver.find_element(By.ID, "day")
+            # Day
+            day_input = driver.find_element(By.XPATH, "//input[@aria-label='Day']")
             day_input.send_keys(info['birthday'].split('-')[2])
             time.sleep(0.3)
             
-            year_input = driver.find_element(By.ID, "year")
+            # Year
+            year_input = driver.find_element(By.XPATH, "//input[@aria-label='Year']")
             year_input.send_keys(info['birthday'].split('-')[0])
             time.sleep(0.3)
             
-            gender_input = driver.find_element(By.ID, "gender")
+            # Gender
+            gender_input = driver.find_element(By.XPATH, "//select[@aria-label='Gender']")
             gender_input.send_keys(info['gender'])
             time.sleep(0.3)
             
+            # Next
             driver.find_element(By.XPATH, "//span[text()='Next']").click()
             time.sleep(random.uniform(4, 6))
             
@@ -184,7 +173,7 @@ class GoogleAccountFactory:
             
             # Check success
             if "Welcome" in driver.title or "Success" in driver.page_source:
-                self.save_account(info, driver.get_cookies())
+                self.save_account(info)
                 self.success += 1
                 print(f"✅ BERHASIL: {info['email']}")
                 return True
@@ -200,7 +189,7 @@ class GoogleAccountFactory:
             if driver:
                 driver.quit()
     
-    def save_account(self, info, cookies):
+    def save_account(self, info):
         accounts = []
         if os.path.exists(config.ACCOUNTS_DB):
             with open(config.ACCOUNTS_DB, 'r') as f:
@@ -210,8 +199,6 @@ class GoogleAccountFactory:
         
         with open(config.ACCOUNTS_DB, 'w') as f:
             json.dump(accounts, f, indent=2)
-        
-        # Cookies gak perlu disimpan di GitHub (hanya JSON)
     
     def run(self, target_count=100):
         self.start_time = time.time()

@@ -1,12 +1,14 @@
 # subscribe_bot.py
-import undetected_chromedriver as uc
+from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import time
 import random
 import json
-import pickle
 import os
 from datetime import datetime
 import config
@@ -27,25 +29,26 @@ class YouTubeSubscribeBot:
         return []
     
     def create_driver(self):
-        options = uc.ChromeOptions()
-        options.binary_location = "/usr/bin/chromium-browser"
+        # Path untuk Termux
+        chromedriver_path = '/data/data/com.termux/files/usr/bin/chromedriver'
+        chrome_binary = '/data/data/com.termux/files/usr/lib/chromium/chrome'
+        
+        service = Service(chromedriver_path)
+        options = Options()
+        options.binary_location = chrome_binary
+        
         options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
+        options.add_argument('--window-size=1920,1080')
         options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_argument('--window-size=1280,720')
-        
-        user_agents = [
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-        ]
-        options.add_argument(f'--user-agent={random.choice(user_agents)}')
-        
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
         options.add_experimental_option('useAutomationExtension', False)
         
-        driver = uc.Chrome(options=options)
+        driver = webdriver.Chrome(service=service, options=options)
+        
+        # Stealth script
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         
         return driver
@@ -57,23 +60,22 @@ class YouTubeSubscribeBot:
         driver = self.create_driver()
         
         try:
-            # Buka YouTube (tanpa cookies, langsung pake akun)
+            # Login
             driver.get("https://accounts.google.com/Login")
             time.sleep(3)
             
-            # Login
             email_input = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.ID, "identifierId"))
+                EC.presence_of_element_located((By.XPATH, "//input[@type='email']"))
             )
             email_input.send_keys(email)
-            driver.find_element(By.ID, "identifierNext").click()
+            driver.find_element(By.XPATH, "//span[text()='Next']").click()
             time.sleep(3)
             
             pass_input = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.NAME, "Passwd"))
+                EC.presence_of_element_located((By.XPATH, "//input[@type='password']"))
             )
             pass_input.send_keys(account['password'])
-            driver.find_element(By.ID, "passwordNext").click()
+            driver.find_element(By.XPATH, "//span[text()='Next']").click()
             time.sleep(5)
             
             # Buka YouTube
@@ -119,7 +121,7 @@ class YouTubeSubscribeBot:
         self.failed = 0
         
         accounts = self.load_accounts()
-        accounts_to_use = accounts[-max_accounts:]  # Ambil akun terbaru
+        accounts_to_use = accounts[-max_accounts:] if accounts else []
         
         print(f"\n🎯 MULAI SUBSCRIBE KE: {config.CHANNEL_NAME}")
         print(f"📊 Total akun: {len(accounts_to_use)}")
@@ -129,13 +131,15 @@ class YouTubeSubscribeBot:
         for idx, account in enumerate(accounts_to_use):
             print(f"\n📌 Akun {idx+1}/{len(accounts_to_use)}")
             self.subscribe_with_account(account)
-            delay = random.uniform(10, 20)
-            print(f"⏰ Delay {delay:.0f} detik...")
-            time.sleep(delay)
+            
+            if idx < len(accounts_to_use) - 1:
+                delay = random.uniform(10, 20)
+                print(f"⏰ Delay {delay:.0f} detik...")
+                time.sleep(delay)
         
         duration = (time.time() - self.start_time) / 60
         rate = (self.success / (self.success + self.failed)) * 100 if (self.success + self.failed) > 0 else 0
-        total_subs = 2 + self.success  # Dari 2 subscriber awal
+        total_subs = 2 + self.success
         
         stats = {
             'success': self.success,
