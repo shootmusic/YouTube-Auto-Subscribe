@@ -1,18 +1,15 @@
 # config.py
 import os
-from datetime import datetime
 
 # ===== KONFIGURASI =====
 TARGET_CHANNEL = "https://www.youtube.com/@remass62"
 CHANNEL_NAME = "@remass62"
 
-# Telegram (sesuai punya Yang Mulia)
-TELEGRAM_TOKEN = "8702596327:AAHnYrI9Mh4-yxpTomqkKZcjz_D0Gq9wdUo"
-TELEGRAM_CHAT_ID = "7710155531"
+# Telegram (ambil dari environment variable / secrets)
+TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN', '')
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
 
-# Jadwal (WIB ke UTC)
-JAM_PRODUKSI_AKUN = 9   # Jam 9 pagi WIB = 2:00 UTC
-JAM_SUBSCRIBE = 11      # Jam 11 pagi WIB = 4:00 UTC
+# Jadwal dan target
 TARGET_AKUN_PER_HARI = 100
 TARGET_SUBSCRIBE_PER_HARI = 100
 
@@ -28,4 +25,3 @@ for dir_path in [ACCOUNTS_DIR, COOKIES_DIR, LOGS_DIR]:
 
 # File database
 ACCOUNTS_DB = os.path.join(ACCOUNTS_DIR, "accounts_db.json")
-HISTORY_FILE = os.path.join(LOGS_DIR, f"history_{datetime.now().strftime('%Y%m')}.json")

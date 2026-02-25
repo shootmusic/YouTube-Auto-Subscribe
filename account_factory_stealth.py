@@ -5,22 +5,20 @@ from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import time
 import random
 import json
 import os
 import string
-import re
-import subprocess
-import platform
 from datetime import datetime
 from fake_useragent import UserAgent
 
-# Config fallback
+# Config
 class Config:
     ACCOUNTS_DB = 'accounts.json'
-    TARGET_AKUN_PER_HARI = 5
+    TARGET_AKUN_PER_HARI = 100
 
 try:
     import config
@@ -88,52 +86,25 @@ class StealthAccountFactory:
         
         return fingerprint
 
-    def create_stealth_driver(self):
-        """Create Chrome instance dengan deteksi environment otomatis"""
+    def create_driver(self):
+        """Create Chrome instance dengan webdriver-manager (auto download)"""
         fp = self.generate_fingerprint()
         
-        # === DETEKSI ENVIRONMENT ===
-        is_termux = os.path.exists('/data/data/com.termux/files/usr')
-        is_github_actions = os.getenv('GITHUB_ACTIONS') == 'true'
-        
-        if is_termux:
-            # Path untuk Termux (local debugging)
-            chromedriver_path = '/data/data/com.termux/files/usr/bin/chromedriver'
-            chrome_binary = '/data/data/com.termux/files/usr/lib/chromium/chrome'
-            print("🔧 Environment: Termux")
-        elif is_github_actions:
-            # Path untuk GitHub Actions (Ubuntu)
-            chromedriver_path = '/usr/local/bin/chromedriver'
-            chrome_binary = '/usr/bin/chromium-browser'
-            print("🔧 Environment: GitHub Actions")
-        else:
-            # Fallback: andai jalan di sistem lain
-            chromedriver_path = 'chromedriver'
-            chrome_binary = None
-            print("🔧 Environment: Unknown (using PATH)")
-        
-        service = Service(chromedriver_path)
         options = Options()
         
-        if chrome_binary:
-            options.binary_location = chrome_binary
-        
-        # Headless mode - matikan untuk debug, nyalakan untuk production
+        # Opsi umum untuk GitHub Actions
         options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
         options.add_argument('--window-size=1920,1080')
-        
-        # Stealth args
         options.add_argument('--disable-blink-features=AutomationControlled')
         options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
         options.add_experimental_option('useAutomationExtension', False)
-        
-        # User agent
         options.add_argument(f'--user-agent={fp["user_agent"]}')
         
-        # Create driver
+        # Gunakan webdriver-manager untuk auto download driver
+        service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=options)
         
         # Stealth script
@@ -223,7 +194,7 @@ class StealthAccountFactory:
                     
                 return True
                 
-            except Exception as e:
+            except Exception:
                 continue
                 
         return False
@@ -236,13 +207,13 @@ class StealthAccountFactory:
             info = self.generate_account()
             print(f"\n🔥 Creating: {info['email']}")
             
-            driver, _ = self.create_stealth_driver()
+            driver, _ = self.create_driver()
             
             # Buka signup
             driver.get("https://accounts.google.com/signup")
             time.sleep(random.uniform(5, 8))
             
-            # === STEP 1: First name ===
+            # First name
             if not self.smart_fill(driver, [
                 ('xpath', "//input[@aria-label='First name']"),
                 ('xpath', "//input[@name='firstName']"),
@@ -250,10 +221,9 @@ class StealthAccountFactory:
             ], info['first']):
                 print("❌ First name not found")
                 return False
-            
             time.sleep(random.uniform(0.5, 1.5))
             
-            # === STEP 2: Last name ===
+            # Last name
             if not self.smart_fill(driver, [
                 ('xpath', "//input[@aria-label='Last name']"),
                 ('xpath', "//input[@name='lastName']"),
@@ -261,11 +231,9 @@ class StealthAccountFactory:
             ], info['last']):
                 print("❌ Last name not found")
                 return False
-            
             time.sleep(random.uniform(0.5, 1.5))
             
-            # === STEP 3: Username/Email - SELECTOR BARU ===
-            # Coba klik Next dulu (mungkin username di halaman berikutnya)
+            # Klik Next (pindah ke halaman username)
             try:
                 next_btn = WebDriverWait(driver, 3).until(
                     EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
@@ -275,83 +243,69 @@ class StealthAccountFactory:
             except:
                 pass
             
-            # Sekarang cari username
+            # Username
             if not self.smart_fill(driver, [
                 ('xpath', "//input[@name='Username']"),
                 ('xpath', "//input[@id='username']"),
                 ('xpath', "//input[@type='email']"),
-                ('xpath', "//input[@aria-label='Username']"),
             ], info['username']):
                 print("❌ Username not found")
-                # Screenshot buat debug
                 driver.save_screenshot('username_error.png')
-                print("📸 Screenshot: username_error.png")
                 return False
-            
             time.sleep(random.uniform(0.5, 1.5))
             
-            # === STEP 4: Password ===
+            # Password
             if not self.smart_fill(driver, [
                 ('xpath', "//input[@type='password']"),
                 ('xpath', "//input[@name='Passwd']"),
-                ('xpath', "//input[@aria-label='Password']"),
             ], info['password']):
                 print("❌ Password field not found")
                 return False
+            time.sleep(0.5)
             
-            time.sleep(random.uniform(0.3, 0.8))
-            
-            # === STEP 5: Confirm password ===
+            # Confirm password
             if not self.smart_fill(driver, [
                 ('xpath', "(//input[@type='password'])[2]"),
                 ('xpath', "//input[@name='PasswdAgain']"),
-                ('xpath', "//input[@aria-label='Confirm']"),
             ], info['password']):
                 print("❌ Confirm password field not found")
                 return False
+            time.sleep(1)
             
-            time.sleep(random.uniform(1, 2))
-            
-            # === STEP 6: Click Next ===
+            # Next
             try:
                 next_btn = WebDriverWait(driver, 5).until(
                     EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
                 )
                 next_btn.click()
-                time.sleep(random.uniform(4, 6))
+                time.sleep(4)
             except:
                 print("❌ Next button not found")
                 return False
             
-            # === STEP 7: Personal info ===
-            # Month
+            # Personal info
             try:
                 month_select = WebDriverWait(driver, 5).until(
                     EC.presence_of_element_located((By.XPATH, "//select[@aria-label='Month']"))
                 )
                 Select(month_select).select_by_value(str(info['birthday']['month']))
-                time.sleep(random.uniform(0.3, 0.8))
+                time.sleep(0.3)
             except:
                 pass
             
             # Day
-            self.smart_fill(driver, [
-                ('xpath', "//input[@aria-label='Day']"),
-            ], str(info['birthday']['day']))
-            time.sleep(random.uniform(0.3, 0.8))
+            self.smart_fill(driver, [('xpath', "//input[@aria-label='Day']")], str(info['birthday']['day']))
+            time.sleep(0.3)
             
             # Year
-            self.smart_fill(driver, [
-                ('xpath', "//input[@aria-label='Year']"),
-            ], str(info['birthday']['year']))
-            time.sleep(random.uniform(0.3, 0.8))
+            self.smart_fill(driver, [('xpath', "//input[@aria-label='Year']")], str(info['birthday']['year']))
+            time.sleep(0.3)
             
             # Gender
             try:
                 gender_select = driver.find_element(By.XPATH, "//select[@aria-label='Gender']")
-                gender_map = {'Male': '1', 'Female': '2'}
-                Select(gender_select).select_by_value(gender_map.get(info['gender'], '3'))
-                time.sleep(random.uniform(0.3, 0.8))
+                Select(gender_select).select_by_value('1' if info['gender'] == 'Male' else '2')
+                time.sleep(0.3)
             except:
                 pass
             
@@ -359,23 +313,15 @@ class StealthAccountFactory:
             try:
                 next_btn = driver.find_element(By.XPATH, "//span[text()='Next']")
                 next_btn.click()
-                time.sleep(random.uniform(4, 6))
+                time.sleep(4)
             except:
                 pass
             
-            # === CHECK SUCCESS ===
+            # Check success
             time.sleep(5)
-            
-            success_signs = [
-                'myaccount.google.com',
-                'accounts.google.com/signin',
-                'Welcome to Google',
-                'Confirm your recovery email'
-            ]
-            
             current_url = driver.current_url.lower()
             
-            if any(sign.lower() in current_url for sign in success_signs):
+            if any(sign in current_url for sign in ['myaccount.google.com', 'accounts.google.com/signin']):
                 self.save_account(info)
                 self.success += 1
                 print(f"✅ SUCCESS: {info['email']}")
@@ -383,17 +329,13 @@ class StealthAccountFactory:
             else:
                 print(f"❌ Failed - URL: {current_url[:60]}...")
                 driver.save_screenshot('error.png')
-                print("📸 Screenshot saved: error.png")
                 self.failed += 1
                 return False
             
         except Exception as e:
             print(f"❌ Error: {str(e)[:100]}")
-            if driver:
-                driver.save_screenshot(f'error_{int(time.time())}.png')
             self.failed += 1
             return False
-            
         finally:
             if driver:
                 driver.quit()
@@ -402,21 +344,16 @@ class StealthAccountFactory:
         """Save account to JSON"""
         accounts = []
         if os.path.exists(config.ACCOUNTS_DB):
-            try:
-                with open(config.ACCOUNTS_DB, 'r') as f:
-                    accounts = json.load(f)
-            except:
-                pass
+            with open(config.ACCOUNTS_DB, 'r') as f:
+                accounts = json.load(f)
         
-        account_data = {
+        accounts.append({
             'email': info['email'],
             'password': info['password'],
             'first': info['first'],
             'last': info['last'],
             'created_at': datetime.now().isoformat()
-        }
-        
-        accounts.append(account_data)
+        })
         
         with open(config.ACCOUNTS_DB, 'w') as f:
             json.dump(accounts, f, indent=2)
@@ -424,16 +361,8 @@ class StealthAccountFactory:
         # Simple CSV
         with open('accounts.csv', 'a') as f:
             f.write(f"{info['email']},{info['password']},{info['first']},{info['last']}\n")
-        
-        # Kirim notifikasi kalo ada
-        if self.notifier and self.success + self.failed > 0:
-            try:
-                stats = {'success': self.success, 'failed': self.failed, 'total': len(accounts)}
-                self.notifier.notify_account_creation(stats)
-            except:
-                pass
 
-    def run(self, count=5):
+    def run(self, count=100):
         print(f"\n🔥 STEALTH MODE: Creating {count} accounts")
         print("=" * 50)
         
@@ -463,4 +392,4 @@ class StealthAccountFactory:
 
 if __name__ == "__main__":
     factory = StealthAccountFactory()
-    factory.run(count=getattr(config, 'TARGET_AKUN_PER_HARI', 5))
+    factory.run(count=getattr(config, 'TARGET_AKUN_PER_HARI', 100))

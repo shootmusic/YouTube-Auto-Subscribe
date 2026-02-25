@@ -5,6 +5,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import time
 import random
@@ -29,31 +30,7 @@ class YouTubeSubscribeBot:
         return []
     
     def create_driver(self):
-        # === DETEKSI ENVIRONMENT ===
-        is_termux = os.path.exists('/data/data/com.termux/files/usr')
-        is_github_actions = os.getenv('GITHUB_ACTIONS') == 'true'
-        
-        if is_termux:
-            # Path untuk Termux (local debugging)
-            chromedriver_path = '/data/data/com.termux/files/usr/bin/chromedriver'
-            chrome_binary = '/data/data/com.termux/files/usr/lib/chromium/chrome'
-            print("🔧 Environment: Termux")
-        elif is_github_actions:
-            # Path untuk GitHub Actions (Ubuntu)
-            chromedriver_path = '/usr/local/bin/chromedriver'
-            chrome_binary = '/usr/bin/chromium-browser'
-            print("🔧 Environment: GitHub Actions")
-        else:
-            # Fallback: andai jalan di sistem lain
-            chromedriver_path = 'chromedriver'
-            chrome_binary = None
-            print("🔧 Environment: Unknown (using PATH)")
-        
-        service = Service(chromedriver_path)
         options = Options()
-        
-        if chrome_binary:
-            options.binary_location = chrome_binary
         
         options.add_argument('--headless')
         options.add_argument('--no-sandbox')
@@ -64,6 +41,8 @@ class YouTubeSubscribeBot:
         options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
         options.add_experimental_option('useAutomationExtension', False)
         
+        # Gunakan webdriver-manager
+        service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=options)
         
         # Stealth script

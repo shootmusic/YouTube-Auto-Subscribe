@@ -1,5 +1,5 @@
 selenium
-undetected-chromedriver
+webdriver-manager
 requests
 fake-useragent
 colorama
