@@ -34,7 +34,14 @@ except ImportError:
 
 class StealthAccountFactory:
     def __init__(self):
-        self.ua = UserAgent(fallback='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+        # UserAgent dengan fallback aman untuk GitHub Actions
+        try:
+            self.ua = UserAgent()
+            self.ua.random  # Test fetch
+        except:
+            self.ua = None
+            print("⚠️ Using fallback user agent")
+        
         self.success = 0
         self.failed = 0
         try:
@@ -69,6 +76,22 @@ class StealthAccountFactory:
             'id-ID,id;q=0.9,en;q=0.8'
         ]
         
+        # Fallback user agents jika fake-useragent gagal
+        fallback_uas = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/119.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36'
+        ]
+        
+        if self.ua:
+            try:
+                user_agent = self.ua.random
+            except:
+                user_agent = random.choice(fallback_uas)
+        else:
+            user_agent = random.choice(fallback_uas)
+        
         fingerprint = {
             'platform': platform_js,
             'platform_ua': platform_ua,
@@ -77,7 +100,7 @@ class StealthAccountFactory:
             'language': random.choice(languages),
             'cores': random.choice([4, 6, 8]),
             'memory': random.choice([8, 16]),
-            'user_agent': self.ua.random
+            'user_agent': user_agent
         }
         
         return fingerprint
@@ -96,6 +119,7 @@ class StealthAccountFactory:
         options.add_experimental_option('useAutomationExtension', False)
         options.add_argument(f'--user-agent={fp["user_agent"]}')
         
+        # GitHub Actions sudah install Chrome, webdriver-manager akan auto download driver yang cocok
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=options)
         
@@ -242,7 +266,6 @@ class StealthAccountFactory:
                 username_field = driver.find_elements(By.XPATH, "//input[@name='Username']|//input[@id='username']")
                 
                 if username_field:
-                    # Ada field langsung, isi manual
                     print("📝 Manual username field detected")
                     self.smart_fill(driver, [
                         ('xpath', "//input[@name='Username']"),
@@ -258,7 +281,6 @@ class StealthAccountFactory:
                     except:
                         pass
                 else:
-                    # Tidak ada field, mungkin pake sistem pilih
                     print("ℹ️ No manual username field, trying suggestion system")
                     
                     # Coba klik Next (pake saran Google)
@@ -284,7 +306,6 @@ class StealthAccountFactory:
                             print("✅ Clicked 'I'll create my own'")
                             time.sleep(2)
                             
-                            # Sekarang ada field username
                             self.smart_fill(driver, [
                                 ('xpath', "//input[@name='Username']"),
                                 ('xpath', "//input[@id='username']"),
@@ -297,7 +318,6 @@ class StealthAccountFactory:
                             time.sleep(3)
                         except:
                             print("⚠️ No interaction on username page")
-                            # Fallback: lanjut aja
                             pass
             else:
                 print("🔍 No username page detected, proceeding...")
@@ -316,7 +336,6 @@ class StealthAccountFactory:
             if not self.smart_fill(driver, password_selectors, info['password']):
                 print("❌ Password field not found - trying alternative approach")
                 
-                # Mungkin masih di halaman username, coba cari tombol next lagi
                 try:
                     next_btn = WebDriverWait(driver, 3).until(
                         EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
@@ -325,7 +344,6 @@ class StealthAccountFactory:
                     print("✅ Clicked Next again")
                     time.sleep(3)
                     
-                    # Coba lagi cari password
                     if self.smart_fill(driver, password_selectors, info['password']):
                         print("✅ Password found after second Next")
                     else:
@@ -359,7 +377,6 @@ class StealthAccountFactory:
                 print("ℹ️ No Next button after password")
             
             # ========== STEP 7: BIRTHDAY & GENDER ==========
-            # Month
             try:
                 month_select = WebDriverWait(driver, 5).until(
                     EC.presence_of_element_located((By.XPATH, "//select[@aria-label='Month']"))
@@ -370,17 +387,14 @@ class StealthAccountFactory:
             except:
                 pass
             
-            # Day
             day_selectors = [('xpath', "//input[@aria-label='Day']")]
             self.smart_fill(driver, day_selectors, str(info['birthday']['day']))
             time.sleep(0.3)
             
-            # Year
             year_selectors = [('xpath', "//input[@aria-label='Year']")]
             self.smart_fill(driver, year_selectors, str(info['birthday']['year']))
             time.sleep(0.3)
             
-            # Gender
             try:
                 gender_select = driver.find_element(By.XPATH, "//select[@aria-label='Gender']")
                 Select(gender_select).select_by_value('1' if info['gender'] == 'Male' else '2')
@@ -465,7 +479,6 @@ class StealthAccountFactory:
         with open(config.ACCOUNTS_DB, 'w') as f:
             json.dump(accounts, f, indent=2)
         
-        # Simple CSV
         with open('accounts.csv', 'a') as f:
             f.write(f"{info['email']},{info['password']},{info['first']},{info['last']}\n")
         
