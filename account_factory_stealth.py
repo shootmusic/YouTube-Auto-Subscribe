@@ -218,70 +218,94 @@ class StealthAccountFactory:
                 print("❌ Next button not found")
                 return False
             
-            # ========== STEP 3: DETEKSI HALAMAN OTOMATIS ==========
+            # ========== STEP 3: DETEKSI HALAMAN USERNAME ==========
             time.sleep(3)
             
-            # Cek apakah ini halaman username atau langsung password
-            if driver.find_elements(By.XPATH, "//input[@type='password']"):
-                # Halaman password - berarti Google auto-generate email
-                print("🔍 Detected: Password page (email auto-generated)")
+            # Cari elemen khas halaman username
+            username_indicators = [
+                "//div[contains(text(), 'Choose your email')]",
+                "//div[contains(text(), 'username')]",
+                "//div[contains(text(), 'Gmail address')]",
+                "//div[contains(text(), 'You'll use this to sign in')]"
+            ]
+            
+            is_username_page = False
+            for indicator in username_indicators:
+                if driver.find_elements(By.XPATH, indicator):
+                    is_username_page = True
+                    break
+            
+            if is_username_page:
+                print("🔍 Detected: Username selection page")
                 
-                # Coba cari email yang digenerate Google
-                email_elements = driver.find_elements(By.XPATH, "//div[contains(text(), '@gmail.com')]")
-                if email_elements:
-                    generated_email = email_elements[0].text.strip()
-                    print(f"📧 Google generated email: {generated_email}")
-                    # Update email dengan yang asli dari Google
-                    info['email'] = generated_email
-                    info['username'] = generated_email.split('@')[0]
-                else:
-                    # Coba cari di input yang mungkin disabled
-                    disabled_inputs = driver.find_elements(By.XPATH, "//input[@readonly or @disabled]")
-                    for inp in disabled_inputs:
-                        value = inp.get_attribute('value')
-                        if value and '@' in value:
-                            info['email'] = value
-                            info['username'] = value.split('@')[0]
-                            print(f"📧 Found email from disabled field: {value}")
-                            break
-            else:
-                # Masih halaman username
-                print("🔍 Detected: Username page")
+                # Cek apakah ada field username langsung
+                username_field = driver.find_elements(By.XPATH, "//input[@name='Username']|//input[@id='username']")
                 
-                username_selectors = [
-                    ('xpath', "//input[@name='Username']"),
-                    ('xpath', "//input[@id='username']"),
-                    ('xpath', "//input[@type='email']"),
-                    ('xpath', "//input[@aria-label='Username']"),
-                    ('xpath', "//input[@aria-label='Email']"),
-                ]
-                
-                if not self.smart_fill(driver, username_selectors, info['username']):
-                    print("⚠️ Username field not found, trying next button")
-                    # Coba klik Next tanpa isi username (mungkin pake saran Google)
+                if username_field:
+                    # Ada field langsung, isi manual
+                    print("📝 Manual username field detected")
+                    self.smart_fill(driver, [
+                        ('xpath', "//input[@name='Username']"),
+                        ('xpath', "//input[@id='username']"),
+                    ], info['username'])
+                    time.sleep(1)
+                    
                     try:
-                        next_btn = WebDriverWait(driver, 3).until(
+                        next_btn = driver.find_element(By.XPATH, "//span[text()='Next']")
+                        next_btn.click()
+                        print("✅ Clicked Next after manual username")
+                        time.sleep(3)
+                    except:
+                        pass
+                else:
+                    # Tidak ada field, mungkin pake sistem pilih
+                    print("ℹ️ No manual username field, trying suggestion system")
+                    
+                    # Coba klik Next (pake saran Google)
+                    try:
+                        next_btn = WebDriverWait(driver, 5).until(
                             EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
                         )
                         next_btn.click()
-                        print("✅ Clicked Next without username (using suggested)")
+                        print("✅ Clicked Next on username page (using suggested)")
                         time.sleep(3)
                         
-                        # Setelah klik, cek email yang digenerate
+                        # Setelah klik, coba ambil email yang digenerate
                         email_elements = driver.find_elements(By.XPATH, "//div[contains(text(), '@gmail.com')]")
                         if email_elements:
-                            generated_email = email_elements[0].text.strip()
-                            info['email'] = generated_email
-                            info['username'] = generated_email.split('@')[0]
-                            print(f"📧 Using generated email: {generated_email}")
+                            info['email'] = email_elements[0].text.strip()
+                            info['username'] = info['email'].split('@')[0]
+                            print(f"📧 Using generated email: {info['email']}")
                     except:
-                        print("❌ No Next button found")
-                        return False
-            
-            time.sleep(2)
+                        # Coba cari tombol "I'll create my own"
+                        try:
+                            own_btn = driver.find_element(By.XPATH, "//span[contains(text(), 'I') and contains(text(), 'create my own')]")
+                            own_btn.click()
+                            print("✅ Clicked 'I'll create my own'")
+                            time.sleep(2)
+                            
+                            # Sekarang ada field username
+                            self.smart_fill(driver, [
+                                ('xpath', "//input[@name='Username']"),
+                                ('xpath', "//input[@id='username']"),
+                            ], info['username'])
+                            time.sleep(1)
+                            
+                            next_btn = driver.find_element(By.XPATH, "//span[text()='Next']")
+                            next_btn.click()
+                            print("✅ Clicked Next after custom username")
+                            time.sleep(3)
+                        except:
+                            print("⚠️ No interaction on username page")
+                            # Fallback: lanjut aja
+                            pass
+            else:
+                print("🔍 No username page detected, proceeding...")
             
             # ========== STEP 4: PASSWORD ==========
+            time.sleep(2)
             print("🔍 Looking for password field...")
+            
             password_selectors = [
                 ('xpath', "//input[@type='password']"),
                 ('xpath', "//input[@name='Passwd']"),
@@ -290,8 +314,24 @@ class StealthAccountFactory:
             ]
             
             if not self.smart_fill(driver, password_selectors, info['password']):
-                print("❌ Password field not found")
-                return False
+                print("❌ Password field not found - trying alternative approach")
+                
+                # Mungkin masih di halaman username, coba cari tombol next lagi
+                try:
+                    next_btn = WebDriverWait(driver, 3).until(
+                        EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
+                    )
+                    next_btn.click()
+                    print("✅ Clicked Next again")
+                    time.sleep(3)
+                    
+                    # Coba lagi cari password
+                    if self.smart_fill(driver, password_selectors, info['password']):
+                        print("✅ Password found after second Next")
+                    else:
+                        return False
+                except:
+                    return False
             time.sleep(0.5)
             
             # ========== STEP 5: CONFIRM PASSWORD ==========
