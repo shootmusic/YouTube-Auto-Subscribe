@@ -305,10 +305,29 @@ class StealthAccountFactory:
                     return False
             else:
                 print("⚠️ 'How you'll sign in' page not detected, trying to continue...")
+                # Coba cari tombol Next langsung
+                try:
+                    next_btn = driver.find_element(By.XPATH, "//span[text()='Next']")
+                    next_btn.click()
+                    print("✅ Clicked Next (fallback)")
+                    time.sleep(3)
+                except:
+                    pass
             
-            # ========== STEP 4: CREATE A STRONG PASSWORD ==========
-            time.sleep(2)
-            print("🔍 Looking for password field...")
+            # ========== STEP 4: WAIT FOR PASSWORD FIELD ==========
+            print("🔍 Waiting for password field to appear...")
+            try:
+                WebDriverWait(driver, 15).until(
+                    EC.presence_of_element_located((By.XPATH, "//input[@type='password']"))
+                )
+                print("✅ Password field appeared")
+            except TimeoutException:
+                print("❌ Password field never appeared after 15 seconds")
+                driver.save_screenshot('debug_no_password_field.png')
+                with open('debug_page_source.html', 'w') as f:
+                    f.write(driver.page_source)
+                print("📸 Screenshot and HTML saved for debugging")
+                return False
             
             # CARI SEMUA INPUT PASSWORD
             all_password_fields = driver.find_elements(By.XPATH, "//input[@type='password']")
@@ -329,7 +348,7 @@ class StealthAccountFactory:
                 time.sleep(1)
             else:
                 print(f"❌ Password fields not found. Found {len(all_password_fields)} fields")
-                driver.save_screenshot('debug_password_not_found.png')
+                driver.save_screenshot('debug_password_fields.png')
                 return False
             
             # Click Next after password
