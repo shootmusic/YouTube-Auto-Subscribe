@@ -290,11 +290,9 @@ class StealthAccountFactory:
             print("🔍 Looking for 'How you'll sign in' page...")
             time.sleep(3)
             
-            # Deteksi halaman "How you'll sign in"
             page_text = driver.page_source
             if "How you'll sign in" in page_text or "Create a Gmail address" in page_text:
                 print("🔍 Detected: 'How you'll sign in' page")
-                # LANGSUNG KLIK NEXT - TIDAK ADA INPUT USERNAME!
                 try:
                     next_btn = WebDriverWait(driver, 5).until(
                         EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
@@ -303,7 +301,7 @@ class StealthAccountFactory:
                     print("✅ Clicked Next on 'How you'll sign in' page")
                     time.sleep(4)
                 except:
-                    print("❌ Next button not found on 'How you'll sign in' page")
+                    print("❌ Next button not found")
                     return False
             else:
                 print("⚠️ 'How you'll sign in' page not detected, trying to continue...")
@@ -312,38 +310,27 @@ class StealthAccountFactory:
             time.sleep(2)
             print("🔍 Looking for password field...")
             
-            password_selectors = [
-                ('xpath', "//input[@type='password']"),
-                ('xpath', "//input[@name='Passwd']"),
-                ('xpath', "//input[@aria-label='Create a strong password']"),
-                ('xpath', "//input[@aria-label='Create a password']"),
-                ('xpath', "//input[@aria-label='Password']"),
-                ('xpath', "//input[@placeholder='password']"),
-                ('xpath', "//input[@placeholder='Enter password']"),
-                ('css', "input[type='password']"),
-            ]
+            # CARI SEMUA INPUT PASSWORD
+            all_password_fields = driver.find_elements(By.XPATH, "//input[@type='password']")
             
-            if not self.smart_fill(driver, password_selectors, info['password']):
-                print("❌ Password field not found")
+            if len(all_password_fields) >= 2:
+                # Yang pertama = password
+                for char in info['password']:
+                    all_password_fields[0].send_keys(char)
+                    time.sleep(random.uniform(0.03, 0.08))
+                print("✅ Password entered")
+                time.sleep(0.5)
+                
+                # Yang kedua = confirm
+                for char in info['password']:
+                    all_password_fields[1].send_keys(char)
+                    time.sleep(random.uniform(0.03, 0.08))
+                print("✅ Confirm password entered")
+                time.sleep(1)
+            else:
+                print(f"❌ Password fields not found. Found {len(all_password_fields)} fields")
                 driver.save_screenshot('debug_password_not_found.png')
                 return False
-            print("✅ Password entered")
-            time.sleep(0.5)
-            
-            confirm_selectors = [
-                ('xpath', "(//input[@type='password'])[2]"),
-                ('xpath', "//input[@name='ConfirmPasswd']"),
-                ('xpath', "//input[@aria-label='Confirm']"),
-                ('xpath', "//input[@aria-label='Confirm password']"),
-                ('xpath', "//input[@placeholder='confirm']"),
-                ('xpath', "//input[@placeholder='Confirm password']"),
-            ]
-            
-            if not self.smart_fill(driver, confirm_selectors, info['password']):
-                print("❌ Confirm password field not found")
-                return False
-            print("✅ Confirm password entered")
-            time.sleep(1)
             
             # Click Next after password
             try:
@@ -385,7 +372,7 @@ class StealthAccountFactory:
             success_indicators = ['myaccount.google.com', 'accounts.google.com/signin', 'account']
             
             if any(indicator in current_url for indicator in success_indicators):
-                # Ambil email dari halaman (karena Google generate otomatis)
+                # Ambil email dari halaman (Google generate otomatis)
                 try:
                     email_element = driver.find_element(By.XPATH, "//div[contains(text(), '@gmail.com')]")
                     info['email'] = email_element.text.strip()
