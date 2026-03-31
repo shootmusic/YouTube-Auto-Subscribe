@@ -245,12 +245,12 @@ class StealthAccountFactory:
             # ========== STEP 3: DETEKSI HALAMAN USERNAME ==========
             time.sleep(3)
             
-            # Cari elemen khas halaman username
+            # Cari elemen khas halaman username - FIX DI BARIS INI!
             username_indicators = [
                 "//div[contains(text(), 'Choose your email')]",
                 "//div[contains(text(), 'username')]",
                 "//div[contains(text(), 'Gmail address')]",
-                "//div[contains(text(), "You'll use this to sign in")]"
+                "//div[contains(text(), \"You'll use this to sign in\")]"
             ]
             
             is_username_page = False
