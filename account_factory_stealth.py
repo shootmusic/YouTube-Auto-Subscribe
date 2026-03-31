@@ -34,10 +34,9 @@ except ImportError:
 
 class StealthAccountFactory:
     def __init__(self):
-        # UserAgent dengan fallback aman untuk GitHub Actions
         try:
             self.ua = UserAgent()
-            self.ua.random  # Test fetch
+            self.ua.random
         except:
             self.ua = None
             print("⚠️ Using fallback user agent")
@@ -76,7 +75,6 @@ class StealthAccountFactory:
             'id-ID,id;q=0.9,en;q=0.8'
         ]
         
-        # Fallback user agents jika fake-useragent gagal
         fallback_uas = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/119.0.0.0 Safari/537.36',
@@ -119,7 +117,6 @@ class StealthAccountFactory:
         options.add_experimental_option('useAutomationExtension', False)
         options.add_argument(f'--user-agent={fp["user_agent"]}')
         
-        # GitHub Actions sudah install Chrome, webdriver-manager akan auto download driver yang cocok
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=options)
         
@@ -132,19 +129,16 @@ class StealthAccountFactory:
         return driver, fp
 
     def generate_account(self):
-        # Nama panggilan (nama pertama)
         first_names = ['Alex', 'Jordan', 'Casey', 'Morgan', 'Riley', 'Avery', 'Quinn', 'Skyler', 'Dakota', 'Reese',
                       'John', 'James', 'Robert', 'Michael', 'William', 'David', 'Richard', 'Joseph', 'Thomas',
                       'George', 'Charles', 'Kenneth', 'Steven', 'Edward', 'Brian', 'Ronald', 'Anthony', 'Kevin']
         
-        # Nama panjang (opsional, jadi gak wajib)
         last_names = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Wilson',
                      'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee']
         
         first = random.choice(first_names)
         last = random.choice(last_names)
         
-        # Username patterns untuk Gmail
         patterns = [
             f"{first.lower()}.{last.lower()}{random.randint(10,999)}",
             f"{first[0].lower()}{last.lower()}{random.randint(100,9999)}",
@@ -154,17 +148,14 @@ class StealthAccountFactory:
         
         username = random.choice(patterns)
         
-        # Password yang kuat
         chars = string.ascii_letters + string.digits + "!@#$%^&*"
         password = ''.join(random.choice(chars) for _ in range(random.randint(12, 16)))
         
-        # Random birthday (18-45 years old)
         from datetime import date, timedelta
         max_age = date.today() - timedelta(days=365*18)
         min_age = date.today() - timedelta(days=365*45)
         random_date = min_age + timedelta(days=random.randint(0, (max_age-min_age).days))
         
-        # Gender sesuai nama (kalo nama keliatan cowo/cewe)
         gender = 'Male'
         if first in ['Alex', 'Jordan', 'Casey', 'Morgan', 'Riley', 'Avery', 'Quinn', 'Skyler', 'Dakota', 'Reese']:
             gender = random.choice(['Male', 'Female'])
@@ -229,7 +220,7 @@ class StealthAccountFactory:
             driver.get("https://accounts.google.com/signup")
             time.sleep(5)
             
-            # ========== STEP 1: PILIH UNTUK SIAPA (skip, pilih default "For myself") ==========
+            # ========== STEP 1: PILIH "For myself" ==========
             try:
                 for_myself = driver.find_elements(By.XPATH, "//div[contains(text(), 'For myself')]")
                 if for_myself:
@@ -244,8 +235,7 @@ class StealthAccountFactory:
             except:
                 print("ℹ️ No 'For myself' page detected")
             
-            # ========== STEP 2: NAMA DEPAN & NAMA PANJANG (OPSIONAL) ==========
-            # First name
+            # ========== STEP 2: NAMA ==========
             first_name_selectors = [
                 ('xpath', "//input[@aria-label='First name']"),
                 ('xpath', "//input[@name='firstName']"),
@@ -254,7 +244,6 @@ class StealthAccountFactory:
             self.smart_fill(driver, first_name_selectors, info['first'])
             time.sleep(1)
             
-            # Last name (optional, bisa dikosongin)
             last_name_selectors = [
                 ('xpath', "//input[@aria-label='Last name']"),
                 ('xpath', "//input[@name='lastName']"),
@@ -263,7 +252,6 @@ class StealthAccountFactory:
             self.smart_fill(driver, last_name_selectors, info['last'])
             time.sleep(1)
             
-            # Click Next
             try:
                 next_btn = WebDriverWait(driver, 5).until(
                     EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
@@ -276,7 +264,6 @@ class StealthAccountFactory:
                 return False
             
             # ========== STEP 3: BIRTHDAY & GENDER ==========
-            # Month
             try:
                 month_select = WebDriverWait(driver, 5).until(
                     EC.presence_of_element_located((By.XPATH, "//select[@aria-label='Month']"))
@@ -287,17 +274,14 @@ class StealthAccountFactory:
             except:
                 pass
             
-            # Day
             day_selectors = [('xpath', "//input[@aria-label='Day']")]
             self.smart_fill(driver, day_selectors, str(info['birthday']['day']))
             time.sleep(0.3)
             
-            # Year
             year_selectors = [('xpath', "//input[@aria-label='Year']")]
             self.smart_fill(driver, year_selectors, str(info['birthday']['year']))
             time.sleep(0.3)
             
-            # Gender
             try:
                 gender_select = driver.find_element(By.XPATH, "//select[@aria-label='Gender']")
                 Select(gender_select).select_by_value('1' if info['gender'] == 'Male' else '2')
@@ -306,7 +290,6 @@ class StealthAccountFactory:
             except:
                 pass
             
-            # Click Next
             try:
                 next_btn = driver.find_element(By.XPATH, "//span[text()='Next']")
                 next_btn.click()
@@ -316,14 +299,14 @@ class StealthAccountFactory:
                 print("❌ Next button not found after birthday")
                 return False
             
-            # ========== STEP 4: CREATE EMAIL ADDRESS (USERNAME) ==========
+            # ========== STEP 4: CREATE EMAIL ADDRESS (DARI SS YANG MULIA) ==========
             print("🔍 Looking for email address page...")
             time.sleep(3)
             
-            # Deteksi halaman "Create an email address"
+            # Deteksi halaman "Create an email address" berdasarkan screenshot Yang Mulia
             email_page_indicators = [
-                "//div[contains(text(), 'Create an email address')]",
-                "//div[contains(text(), 'Gmail address')]",
+                "//h1[contains(text(), 'Create an email address')]",
+                "//div[contains(text(), 'Create a Gmail address')]",
                 "//div[contains(text(), 'Create your own Gmail address')]"
             ]
             
@@ -336,52 +319,39 @@ class StealthAccountFactory:
             if is_email_page:
                 print("🔍 Detected: Create email address page")
                 
-                # Cek apakah ada pilihan rekomendasi dari Google
+                # Cari pilihan rekomendasi email dari Google
                 recommended_emails = driver.find_elements(By.XPATH, "//div[contains(text(), '@gmail.com')]")
                 
                 if recommended_emails:
-                    # Pake rekomendasi pertama dari Google
+                    # Pilih rekomendasi pertama
+                    recommended_emails[0].click()
                     info['email'] = recommended_emails[0].text.strip()
                     info['username'] = info['email'].split('@')[0]
                     print(f"📧 Using recommended email: {info['email']}")
-                    
-                    # Klik pilihan pertama
-                    try:
-                        recommended_emails[0].click()
-                        print("✅ Clicked recommended email")
-                        time.sleep(1)
-                    except:
-                        pass
+                    time.sleep(1)
                 else:
-                    # Coba cari input manual
-                    username_input = driver.find_elements(By.XPATH, "//input[@name='Username']|//input[@id='username']")
-                    if username_input:
-                        print("📝 Manual username input detected")
-                        username_input[0].send_keys(info['username'])
-                        print(f"✅ Username entered: {info['username']}")
-                        time.sleep(1)
-                    
-                    # Cari tombol "Create your own"
+                    # Klik "Create your own Gmail address"
                     try:
-                        own_btn = driver.find_element(By.XPATH, "//span[contains(text(), 'Create your own')]")
+                        own_btn = driver.find_element(By.XPATH, "//div[contains(text(), 'Create your own')]")
                         own_btn.click()
-                        print("✅ Clicked 'Create your own'")
+                        print("✅ Clicked 'Create your own Gmail address'")
                         time.sleep(2)
                         
+                        # Isi username manual
                         username_input = driver.find_element(By.XPATH, "//input[@name='Username']")
                         username_input.send_keys(info['username'])
-                        print(f"✅ Username entered: {info['username']}")
+                        print(f"📧 Using custom username: {info['username']}")
                         time.sleep(1)
                     except:
-                        pass
+                        print("⚠️ Could not find 'Create your own' button")
                 
-                # Click Next
+                # Klik Next
                 try:
                     next_btn = WebDriverWait(driver, 5).until(
                         EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
                     )
                     next_btn.click()
-                    print("✅ Clicked Next after email address")
+                    print("✅ Clicked Next after email selection")
                     time.sleep(4)
                 except:
                     print("❌ Next button not found on email page")
@@ -389,11 +359,10 @@ class StealthAccountFactory:
             else:
                 print("⚠️ No email page detected, proceeding to password...")
             
-            # ========== STEP 5: CREATE PASSWORD & CONFIRM ==========
+            # ========== STEP 5: PASSWORD ==========
             time.sleep(2)
             print("🔍 Looking for password field...")
             
-            # Password field selectors
             password_selectors = [
                 ('xpath', "//input[@type='password']"),
                 ('xpath', "//input[@name='Passwd']"),
@@ -411,7 +380,6 @@ class StealthAccountFactory:
             print("✅ Password entered")
             time.sleep(0.5)
             
-            # Confirm password field selectors
             confirm_selectors = [
                 ('xpath', "(//input[@type='password'])[2]"),
                 ('xpath', "//input[@name='ConfirmPasswd']"),
@@ -427,7 +395,6 @@ class StealthAccountFactory:
             print("✅ Confirm password entered")
             time.sleep(1)
             
-            # Click Next after password
             try:
                 next_btn = WebDriverWait(driver, 5).until(
                     EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
@@ -438,7 +405,7 @@ class StealthAccountFactory:
             except:
                 print("ℹ️ No Next button after password")
             
-            # ========== STEP 6: SKIP PHONE VERIFICATION ==========
+            # ========== STEP 6: SKIP PHONE ==========
             try:
                 skip_btn = WebDriverWait(driver, 3).until(
                     EC.element_to_be_clickable((By.XPATH, "//span[text()='Skip']"))
@@ -449,7 +416,7 @@ class StealthAccountFactory:
             except:
                 pass
             
-            # ========== STEP 7: I AGREE (TERMS) ==========
+            # ========== STEP 7: I AGREE ==========
             try:
                 agree_btn = WebDriverWait(driver, 3).until(
                     EC.element_to_be_clickable((By.XPATH, "//span[text()='I agree']"))
