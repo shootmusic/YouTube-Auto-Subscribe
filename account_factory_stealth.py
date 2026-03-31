@@ -220,22 +220,7 @@ class StealthAccountFactory:
             driver.get("https://accounts.google.com/signup")
             time.sleep(5)
             
-            # ========== STEP 1: PILIH "For myself" ==========
-            try:
-                for_myself = driver.find_elements(By.XPATH, "//div[contains(text(), 'For myself')]")
-                if for_myself:
-                    for_myself[0].click()
-                    print("✅ Selected 'For myself'")
-                    time.sleep(1)
-                    
-                    next_btn = driver.find_element(By.XPATH, "//span[text()='Next']")
-                    next_btn.click()
-                    print("✅ Clicked Next after selection")
-                    time.sleep(3)
-            except:
-                print("ℹ️ No 'For myself' page detected")
-            
-            # ========== STEP 2: NAMA ==========
+            # ========== STEP 1: NAMA DEPAN & BELAKANG ==========
             first_name_selectors = [
                 ('xpath', "//input[@aria-label='First name']"),
                 ('xpath', "//input[@name='firstName']"),
@@ -252,6 +237,7 @@ class StealthAccountFactory:
             self.smart_fill(driver, last_name_selectors, info['last'])
             time.sleep(1)
             
+            # Click Next after name
             try:
                 next_btn = WebDriverWait(driver, 5).until(
                     EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
@@ -263,7 +249,7 @@ class StealthAccountFactory:
                 print("❌ Next button not found")
                 return False
             
-            # ========== STEP 3: BIRTHDAY & GENDER ==========
+            # ========== STEP 2: BIRTHDAY & GENDER ==========
             try:
                 month_select = WebDriverWait(driver, 5).until(
                     EC.presence_of_element_located((By.XPATH, "//select[@aria-label='Month']"))
@@ -290,6 +276,7 @@ class StealthAccountFactory:
             except:
                 pass
             
+            # Click Next after birthday
             try:
                 next_btn = driver.find_element(By.XPATH, "//span[text()='Next']")
                 next_btn.click()
@@ -299,67 +286,29 @@ class StealthAccountFactory:
                 print("❌ Next button not found after birthday")
                 return False
             
-            # ========== STEP 4: CREATE EMAIL ADDRESS (DARI SS YANG MULIA) ==========
-            print("🔍 Looking for email address page...")
+            # ========== STEP 3: HALAMAN "How you'll sign in" ==========
+            print("🔍 Looking for 'How you'll sign in' page...")
             time.sleep(3)
             
-            # Deteksi halaman "Create an email address" berdasarkan screenshot Yang Mulia
-            email_page_indicators = [
-                "//h1[contains(text(), 'Create an email address')]",
-                "//div[contains(text(), 'Create a Gmail address')]",
-                "//div[contains(text(), 'Create your own Gmail address')]"
-            ]
-            
-            is_email_page = False
-            for indicator in email_page_indicators:
-                if driver.find_elements(By.XPATH, indicator):
-                    is_email_page = True
-                    break
-            
-            if is_email_page:
-                print("🔍 Detected: Create email address page")
-                
-                # Cari pilihan rekomendasi email dari Google
-                recommended_emails = driver.find_elements(By.XPATH, "//div[contains(text(), '@gmail.com')]")
-                
-                if recommended_emails:
-                    # Pilih rekomendasi pertama
-                    recommended_emails[0].click()
-                    info['email'] = recommended_emails[0].text.strip()
-                    info['username'] = info['email'].split('@')[0]
-                    print(f"📧 Using recommended email: {info['email']}")
-                    time.sleep(1)
-                else:
-                    # Klik "Create your own Gmail address"
-                    try:
-                        own_btn = driver.find_element(By.XPATH, "//div[contains(text(), 'Create your own')]")
-                        own_btn.click()
-                        print("✅ Clicked 'Create your own Gmail address'")
-                        time.sleep(2)
-                        
-                        # Isi username manual
-                        username_input = driver.find_element(By.XPATH, "//input[@name='Username']")
-                        username_input.send_keys(info['username'])
-                        print(f"📧 Using custom username: {info['username']}")
-                        time.sleep(1)
-                    except:
-                        print("⚠️ Could not find 'Create your own' button")
-                
-                # Klik Next
+            # Deteksi halaman "How you'll sign in"
+            page_text = driver.page_source
+            if "How you'll sign in" in page_text or "Create a Gmail address" in page_text:
+                print("🔍 Detected: 'How you'll sign in' page")
+                # LANGSUNG KLIK NEXT - TIDAK ADA INPUT USERNAME!
                 try:
                     next_btn = WebDriverWait(driver, 5).until(
                         EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
                     )
                     next_btn.click()
-                    print("✅ Clicked Next after email selection")
+                    print("✅ Clicked Next on 'How you'll sign in' page")
                     time.sleep(4)
                 except:
-                    print("❌ Next button not found on email page")
+                    print("❌ Next button not found on 'How you'll sign in' page")
                     return False
             else:
-                print("⚠️ No email page detected, proceeding to password...")
+                print("⚠️ 'How you'll sign in' page not detected, trying to continue...")
             
-            # ========== STEP 5: PASSWORD ==========
+            # ========== STEP 4: CREATE A STRONG PASSWORD ==========
             time.sleep(2)
             print("🔍 Looking for password field...")
             
@@ -376,6 +325,7 @@ class StealthAccountFactory:
             
             if not self.smart_fill(driver, password_selectors, info['password']):
                 print("❌ Password field not found")
+                driver.save_screenshot('debug_password_not_found.png')
                 return False
             print("✅ Password entered")
             time.sleep(0.5)
@@ -395,6 +345,7 @@ class StealthAccountFactory:
             print("✅ Confirm password entered")
             time.sleep(1)
             
+            # Click Next after password
             try:
                 next_btn = WebDriverWait(driver, 5).until(
                     EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
@@ -405,7 +356,7 @@ class StealthAccountFactory:
             except:
                 print("ℹ️ No Next button after password")
             
-            # ========== STEP 6: SKIP PHONE ==========
+            # ========== STEP 5: SKIP PHONE ==========
             try:
                 skip_btn = WebDriverWait(driver, 3).until(
                     EC.element_to_be_clickable((By.XPATH, "//span[text()='Skip']"))
@@ -416,7 +367,7 @@ class StealthAccountFactory:
             except:
                 pass
             
-            # ========== STEP 7: I AGREE ==========
+            # ========== STEP 6: I AGREE ==========
             try:
                 agree_btn = WebDriverWait(driver, 3).until(
                     EC.element_to_be_clickable((By.XPATH, "//span[text()='I agree']"))
@@ -427,13 +378,22 @@ class StealthAccountFactory:
             except:
                 pass
             
-            # ========== STEP 8: CHECK SUCCESS ==========
+            # ========== STEP 7: CHECK SUCCESS ==========
             time.sleep(5)
             current_url = driver.current_url.lower()
             
             success_indicators = ['myaccount.google.com', 'accounts.google.com/signin', 'account']
             
             if any(indicator in current_url for indicator in success_indicators):
+                # Ambil email dari halaman (karena Google generate otomatis)
+                try:
+                    email_element = driver.find_element(By.XPATH, "//div[contains(text(), '@gmail.com')]")
+                    info['email'] = email_element.text.strip()
+                    info['username'] = info['email'].split('@')[0]
+                    print(f"📧 Google generated email: {info['email']}")
+                except:
+                    pass
+                
                 self.save_account(info)
                 self.success += 1
                 print(f"✅✅✅ SUCCESS: {info['email']}")
