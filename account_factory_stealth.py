@@ -322,7 +322,7 @@ class StealthAccountFactory:
             else:
                 print("🔍 No username page detected, proceeding...")
             
-            # ========== STEP 4: PASSWORD ==========
+            # ========== STEP 4: PASSWORD (SELECTOR LENGKAP) ==========
             time.sleep(2)
             print("🔍 Looking for password field...")
             
@@ -331,6 +331,10 @@ class StealthAccountFactory:
                 ('xpath', "//input[@name='Passwd']"),
                 ('xpath', "//input[@aria-label='Password']"),
                 ('xpath', "//input[@aria-label='Create password']"),
+                ('xpath', "//input[@autocomplete='new-password']"),
+                ('xpath', "//input[@id='passwd']"),
+                ('xpath', "//input[@id='password']"),
+                ('css', "input[type='password']"),
             ]
             
             if not self.smart_fill(driver, password_selectors, info['password']):
@@ -352,12 +356,14 @@ class StealthAccountFactory:
                     return False
             time.sleep(0.5)
             
-            # ========== STEP 5: CONFIRM PASSWORD ==========
+            # ========== STEP 5: CONFIRM PASSWORD (SELECTOR LENGKAP) ==========
             confirm_selectors = [
                 ('xpath', "(//input[@type='password'])[2]"),
                 ('xpath', "//input[@name='PasswdAgain']"),
                 ('xpath', "//input[@aria-label='Confirm']"),
                 ('xpath', "//input[@aria-label='Confirm password']"),
+                ('xpath', "//input[@autocomplete='new-password'][2]"),
+                ('css', "input[type='password']:nth-of-type(2)"),
             ]
             
             if not self.smart_fill(driver, confirm_selectors, info['password']):
