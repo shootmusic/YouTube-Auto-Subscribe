@@ -290,39 +290,46 @@ class StealthAccountFactory:
             print("🔍 Looking for 'How you'll sign in' page...")
             time.sleep(3)
             
-            page_text = driver.page_source
-            if "How you'll sign in" in page_text or "Create a Gmail address" in page_text:
+            # Tunggu sampai elemen "How you'll sign in" muncul
+            try:
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.XPATH, "//div[contains(text(), 'How you'll sign in')]"))
+                )
                 print("🔍 Detected: 'How you'll sign in' page")
+                
+                # Klik Next, tapi tunggu URL berubah
+                current_url = driver.current_url
+                next_btn = driver.find_element(By.XPATH, "//span[text()='Next']")
+                next_btn.click()
+                print("✅ Clicked Next on 'How you'll sign in' page")
+                
+                # Tunggu URL berubah (maks 30 detik)
+                WebDriverWait(driver, 30).until(EC.url_changes(current_url))
+                print("✅ URL changed after 'How you'll sign in'")
+                
+            except TimeoutException:
+                print("⚠️ 'How you'll sign in' page not detected, trying fallback...")
+                # Coba klik Next langsung
                 try:
-                    next_btn = WebDriverWait(driver, 5).until(
-                        EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
-                    )
-                    next_btn.click()
-                    print("✅ Clicked Next on 'How you'll sign in' page")
-                    time.sleep(4)
-                except:
-                    print("❌ Next button not found")
-                    return False
-            else:
-                print("⚠️ 'How you'll sign in' page not detected, trying to continue...")
-                # Coba cari tombol Next langsung
-                try:
+                    current_url = driver.current_url
                     next_btn = driver.find_element(By.XPATH, "//span[text()='Next']")
                     next_btn.click()
                     print("✅ Clicked Next (fallback)")
-                    time.sleep(3)
+                    WebDriverWait(driver, 30).until(EC.url_changes(current_url))
+                    print("✅ URL changed after fallback")
                 except:
-                    pass
+                    print("❌ Could not proceed from 'How you'll sign in' page")
+                    return False
             
             # ========== STEP 4: WAIT FOR PASSWORD FIELD ==========
             print("🔍 Waiting for password field to appear...")
             try:
-                WebDriverWait(driver, 15).until(
+                WebDriverWait(driver, 30).until(
                     EC.presence_of_element_located((By.XPATH, "//input[@type='password']"))
                 )
                 print("✅ Password field appeared")
             except TimeoutException:
-                print("❌ Password field never appeared after 15 seconds")
+                print("❌ Password field never appeared after 30 seconds")
                 driver.save_screenshot('debug_no_password_field.png')
                 with open('debug_page_source.html', 'w') as f:
                     f.write(driver.page_source)
