@@ -286,39 +286,35 @@ class StealthAccountFactory:
                 print("❌ Next button not found after birthday")
                 return False
             
-            # ========== STEP 3: HALAMAN "How you'll sign in" ==========
-            print("🔍 Looking for 'How you'll sign in' page...")
+            # ========== STEP 3: HALAMAN USERNAME/PASSWORD FLOW ==========
+            print("🔍 Proceeding to username/password setup...")
             time.sleep(3)
             
-            # Tunggu sampai elemen "How you'll sign in" muncul
             try:
-                WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.XPATH, "//div[contains(text(), 'How you'll sign in')]"))
-                )
-                print("🔍 Detected: 'How you'll sign in' page")
-                
-                # Klik Next, tapi tunggu URL berubah
                 current_url = driver.current_url
-                next_btn = driver.find_element(By.XPATH, "//span[text()='Next']")
-                next_btn.click()
-                print("✅ Clicked Next on 'How you'll sign in' page")
                 
-                # Tunggu URL berubah (maks 30 detik)
+                # Klik Next untuk lanjut ke setup username
+                next_btn = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, "//button[.//span[text()='Next']]"))
+                )
+                next_btn.click()
+                print("✅ Clicked Next on username setup page")
+                
+                # Tunggu URL berubah (indikasi page berpindah ke password)
                 WebDriverWait(driver, 30).until(EC.url_changes(current_url))
-                print("✅ URL changed after 'How you'll sign in'")
+                print("✅ URL changed successfully")
                 
             except TimeoutException:
-                print("⚠️ 'How you'll sign in' page not detected, trying fallback...")
-                # Coba klik Next langsung
+                print("⚠️ Timeout waiting for Next button, trying fallback...")
                 try:
                     current_url = driver.current_url
-                    next_btn = driver.find_element(By.XPATH, "//span[text()='Next']")
+                    # Fallback: cari button apapun yang ada text Next
+                    next_btn = driver.find_element(By.XPATH, "//*[contains(text(), 'Next')]")
                     next_btn.click()
-                    print("✅ Clicked Next (fallback)")
                     WebDriverWait(driver, 30).until(EC.url_changes(current_url))
-                    print("✅ URL changed after fallback")
+                    print("✅ Fallback worked")
                 except:
-                    print("❌ Could not proceed from 'How you'll sign in' page")
+                    print("❌ Could not proceed")
                     return False
             
             # ========== STEP 4: WAIT FOR PASSWORD FIELD ==========
