@@ -1,4 +1,4 @@
-# account_factory_stealth.py - BIRTHDAY FIX
+# account_factory_stealth.py - 1 AKUN PER HARI
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait, Select
@@ -16,7 +16,7 @@ from datetime import datetime
 
 class Config:
     ACCOUNTS_DB = 'accounts.json'
-    TARGET_AKUN_PER_HARI = 5
+    TARGET_AKUN_PER_HARI = 1
 
 try:
     import config
@@ -27,32 +27,6 @@ class StealthAccountFactory:
     def __init__(self):
         self.success = 0
         self.failed = 0
-        
-    def generate_fingerprint(self):
-        user_agents = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/119.0.0.0 Safari/537.36'
-        ]
-        return {'user_agent': random.choice(user_agents)}
-
-    def create_driver(self):
-        fp = self.generate_fingerprint()
-        options = Options()
-        options.add_argument('--headless')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--disable-gpu')
-        options.add_argument('--window-size=1920,1080)
-        options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
-        options.add_experimental_option('useAutomationExtension', False)
-        options.add_argument(f'--user-agent={fp["user_agent"]}')
-        
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=options)
-        
-        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        return driver, fp
 
     def generate_account(self):
         first_names = ['Alex', 'Jordan', 'Casey', 'Morgan', 'Riley', 'Avery', 'Quinn', 'Skyler', 'Thomas', 'Steven']
@@ -66,9 +40,10 @@ class StealthAccountFactory:
         password = ''.join(random.choice(chars) for _ in range(12))
         
         from datetime import date, timedelta
-        max_age = date.today() - timedelta(days=365*20)
-        min_age = date.today() - timedelta(days=365*35)
-        random_date = min_age + timedelta(days=random.randint(0, (max_age-min_age).days))
+        # PASTIKAN UMUR 20-35 TAHUN (VALID)
+        min_age = date.today() - timedelta(days=365*20)
+        max_age = date.today() - timedelta(days=365*35)
+        random_date = max_age + timedelta(days=random.randint(0, (min_age-max_age).days))
         
         return {
             'first': first, 'last': last, 'username': username,
@@ -77,34 +52,22 @@ class StealthAccountFactory:
             'gender': random.choice(['Male', 'Female'])
         }
 
-    def debug_page(self, driver, step_name):
-        timestamp = int(time.time())
-        print(f"\n🔍 DEBUG [{step_name}]")
-        print(f"🌐 URL: {driver.current_url}")
+    def create_driver(self):
+        options = Options()
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--window-size=1920,1080')
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
+        options.add_experimental_option('useAutomationExtension', False)
         
-        try:
-            driver.save_screenshot(f'debug_{step_name}_{timestamp}.png')
-            print(f"📸 Screenshot saved")
-        except:
-            pass
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=options)
         
-        try:
-            with open(f'debug_{step_name}_{timestamp}.html', 'w', encoding='utf-8') as f:
-                f.write(driver.page_source)
-            print(f"📄 HTML saved")
-        except:
-            pass
-        
-        try:
-            inputs = driver.find_elements(By.TAG_NAME, "input")
-            print(f"📝 Inputs: {len(inputs)}")
-            for i, inp in enumerate(inputs[:5]):
-                t = inp.get_attribute('type') or 'no-type'
-                n = inp.get_attribute('name') or 'no-name'
-                a = inp.get_attribute('aria-label') or 'no-aria'
-                print(f"  [{i}] {t}, {n}, {a[:25]}")
-        except:
-            pass
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        return driver
 
     def smart_fill(self, driver, xpath, value):
         try:
@@ -118,35 +81,65 @@ class StealthAccountFactory:
         except:
             return False
 
+    def click_next(self, driver):
+        """Klik Next dengan berbagai metode"""
+        try:
+            # Scroll ke tombol Next
+            next_btn = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
+            )
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_btn)
+            time.sleep(0.5)
+            driver.execute_script("arguments[0].click();", next_btn)
+            print("✅ Next clicked (JavaScript)")
+            return True
+        except Exception as e:
+            print(f"❌ Next click error: {e}")
+            return False
+
     def create_account(self):
         driver = None
         try:
             info = self.generate_account()
             print(f"\n{'='*60}")
             print(f"🔥 Creating: {info['email']}")
+            print(f"🎂 Birthday: {info['birthday']['day']}/{info['birthday']['month']}/{info['birthday']['year']}")
+            print(f"⚥ Gender: {info['gender']}")
             print(f"{'='*60}")
             
-            driver, _ = self.create_driver()
+            driver = self.create_driver()
             driver.get("https://accounts.google.com/signup")
             time.sleep(5)
             
-            # STEP 1: NAME
+            # ========== STEP 1: NAME ==========
             print("\n📍 STEP 1: Name")
-            self.smart_fill(driver, "//input[@name='firstName']", info['first'])
-            time.sleep(0.5)
-            self.smart_fill(driver, "//input[@name='lastName']", info['last'])
+            if not self.smart_fill(driver, "//input[@name='firstName']", info['first']):
+                print("❌ First name failed")
+                return False
             time.sleep(0.5)
             
-            driver.find_element(By.XPATH, "//span[text()='Next']").click()
-            print("✅ Next after name")
+            if not self.smart_fill(driver, "//input[@name='lastName']", info['last']):
+                print("❌ Last name failed")
+                return False
+            time.sleep(0.5)
+            
+            if not self.click_next(driver):
+                return False
             time.sleep(4)
             
-            # ========== STEP 2: BIRTHDAY (FIXED) ==========
-            print("\n📍 STEP 2: Birthday")
+            # ========== STEP 2: BIRTHDAY & GENDER ==========
+            print("\n📍 STEP 2: Birthday & Gender")
             
-            self.debug_page(driver, "birthday_start")
+            # CEK ERROR MESSAGE SEBELUM INPUT
+            try:
+                errors = driver.find_elements(By.XPATH, "//div[contains(@class, 'error') or contains(@role, 'alert')]")
+                for err in errors:
+                    if err.text:
+                        print(f"⚠️ ERROR: {err.text}")
+            except:
+                pass
             
-            # ISI MONTH
+            # Month
             try:
                 month_select = WebDriverWait(driver, 10).until(
                     EC.presence_of_element_located((By.XPATH, "//select[@aria-label='Month']"))
@@ -158,23 +151,23 @@ class StealthAccountFactory:
                 print(f"❌ Month error: {e}")
                 return False
             
-            # ISI DAY (2 DIGIT)
+            # Day
             day_str = str(info['birthday']['day']).zfill(2)
             if not self.smart_fill(driver, "//input[@aria-label='Day']", day_str):
-                print("❌ Day input failed")
+                print("❌ Day failed")
                 return False
             print(f"✅ Day: {day_str}")
             time.sleep(0.5)
             
-            # ISI YEAR
+            # Year
             year_str = str(info['birthday']['year'])
             if not self.smart_fill(driver, "//input[@aria-label='Year']", year_str):
-                print("❌ Year input failed")
+                print("❌ Year failed")
                 return False
             print(f"✅ Year: {year_str}")
             time.sleep(0.5)
             
-            # ISI GENDER (WAJIB!)
+            # Gender
             try:
                 gender_select = WebDriverWait(driver, 5).until(
                     EC.presence_of_element_located((By.XPATH, "//select[@aria-label='Gender']"))
@@ -187,139 +180,158 @@ class StealthAccountFactory:
                 print(f"❌ Gender error: {e}")
                 return False
             
-            self.debug_page(driver, "birthday_filled")
+            # CEK ERROR MESSAGE SETELAH INPUT
+            try:
+                errors = driver.find_elements(By.XPATH, "//div[contains(@class, 'error') or contains(@role, 'alert')]")
+                for err in errors:
+                    if err.text:
+                        print(f"⚠️ ERROR AFTER INPUT: {err.text}")
+            except:
+                pass
             
-            # KLIK NEXT + CEK URL BERUBAH
-            print("🔘 Clicking Next...")
+            # KLIK NEXT DENGAN CEK URL
+            print("🔘 Clicking Next on birthday page...")
             current_url = driver.current_url
             
-            try:
-                next_btn = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']/ancestor::button"))
-                )
-                next_btn.click()
-                print("✅ Next clicked")
-            except:
-                print("❌ Next button not found")
+            if not self.click_next(driver):
+                print("❌ Next button on birthday page failed")
                 return False
             
-            # TUNGGU URL BERUBAH (KRITIS!)
-            time.sleep(2)
+            # TUNGGU DAN CEK URL BERUBAH
+            time.sleep(5)
             new_url = driver.current_url
-            print(f"🌐 URL: {new_url}")
             
-            if "birthdaygender" in new_url:
-                print("❌ STUCK ON BIRTHDAY PAGE - Aborting")
-                self.debug_page(driver, "birthday_stuck")
-                return False
+            if current_url == new_url:
+                print("❌ URL NOT CHANGED - Still on birthday page")
+                # Coba force refresh
+                driver.refresh()
+                time.sleep(3)
+                new_url = driver.current_url
+                if current_url == new_url:
+                    return False
             
-            print("✅ Advanced from birthday page")
+            print(f"✅ URL changed to: {new_url[:80]}")
             time.sleep(3)
             
-            # STEP 3: USERNAME
-            print("\n📍 STEP 3: Username")
-            self.debug_page(driver, "username_page")
+            # ========== STEP 3: USERNAME PAGE ==========
+            print("\n📍 STEP 3: Username page")
             
-            # PILIH RADIO ATAU ISI USERNAME
-            try:
-                radios = driver.find_elements(By.XPATH, "//input[@type='radio']")
-                if radios:
-                    random.choice(radios).click()
-                    print("✅ Selected username option")
-                    time.sleep(1)
-            except:
-                pass
-            
-            try:
-                username_input = driver.find_element(By.XPATH, "//input[@type='text' and (contains(@aria-label, 'username') or contains(@aria-label, 'Gmail'))]")
-                username_input.clear()
-                username_input.send_keys(info['username'])
-                print(f"✅ Username: {info['username']}")
-                time.sleep(1)
-            except:
-                print("ℹ️ Auto-generated username")
-            
-            # KLIK NEXT
-            try:
-                driver.find_element(By.XPATH, "//span[text()='Next']").click()
-                print("✅ Next after username")
-                time.sleep(5)
-            except:
-                print("❌ Next failed")
+            # CEK APAKAH ADA CAPTCHA/CHALLENGE
+            if "captcha" in driver.current_url.lower() or "challenge" in driver.current_url.lower():
+                print("🚫 CAPTCHA/CHALLENGE DETECTED")
                 return False
             
-            # STEP 4: PASSWORD
-            print("\n📍 STEP 4: Password")
-            self.debug_page(driver, "password_page")
+            # ISI USERNAME
+            username_selectors = [
+                "//input[@name='Username']",
+                "//input[@id='username']",
+                "//input[@type='text'][contains(@aria-label, 'username')]",
+                "//input[@type='text'][contains(@aria-label, 'Gmail')]"
+            ]
             
-            # CARI PASSWORD FIELDS
-            pwd_fields = driver.find_elements(By.XPATH, "//input[@type='password']")
-            print(f"🔑 Password fields: {len(pwd_fields)}")
-            
-            if len(pwd_fields) >= 2:
-                for char in info['password']:
-                    pwd_fields[0].send_keys(char)
-                    time.sleep(0.05)
-                for char in info['password']:
-                    pwd_fields[1].send_keys(char)
-                    time.sleep(0.05)
-                print("✅ Password & confirm entered")
-            elif len(pwd_fields) == 1:
-                pwd_fields[0].send_keys(info['password'])
-                print("✅ Password entered")
-                driver.find_element(By.XPATH, "//span[text()='Next']").click()
-                time.sleep(3)
+            username_filled = False
+            for sel in username_selectors:
                 try:
-                    confirm = driver.find_element(By.XPATH, "//input[@type='password' and (contains(@aria-label, 'Confirm') or @name='PasswdAgain')]")
-                    confirm.send_keys(info['password'])
-                    print("✅ Confirm entered")
+                    username_input = WebDriverWait(driver, 3).until(
+                        EC.presence_of_element_located((By.XPATH, sel))
+                    )
+                    username_input.clear()
+                    username_input.send_keys(info['username'])
+                    print(f"✅ Username entered: {info['username']}")
+                    username_filled = True
+                    break
                 except:
-                    pass
+                    continue
+            
+            if not username_filled:
+                print("ℹ️ No username input (Google will auto-generate)")
+            
+            if not self.click_next(driver):
+                print("❌ Next after username failed")
+                return False
+            time.sleep(5)
+            
+            # ========== STEP 4: PASSWORD ==========
+            print("\n📍 STEP 4: Password page")
+            
+            # TUNGGU PASSWORD FIELD (MAX 30 DETIK)
+            password_fields = []
+            for attempt in range(30):
+                pwd_fields = driver.find_elements(By.XPATH, "//input[@type='password']")
+                if pwd_fields:
+                    password_fields = pwd_fields
+                    print(f"✅ Password field found ({len(password_fields)} fields)")
+                    break
+                time.sleep(1)
+            
+            if len(password_fields) >= 2:
+                for char in info['password']:
+                    password_fields[0].send_keys(char)
+                    time.sleep(0.05)
+                print("✅ Password entered")
+                time.sleep(0.5)
+                
+                for char in info['password']:
+                    password_fields[1].send_keys(char)
+                    time.sleep(0.05)
+                print("✅ Confirm entered")
+                
+            elif len(password_fields) == 1:
+                password_fields[0].send_keys(info['password'])
+                print("✅ Password entered")
+                
+                confirm = driver.find_elements(By.XPATH, "//input[@type='password'][contains(@aria-label, 'Confirm')]")
+                if confirm:
+                    confirm[0].send_keys(info['password'])
+                    print("✅ Confirm entered")
             else:
-                print("❌ No password fields")
+                print("❌ No password fields found")
                 return False
             
-            # KLIK NEXT
-            try:
-                driver.find_element(By.XPATH, "//span[text()='Next']").click()
-                print("✅ Next after password")
-                time.sleep(4)
-            except:
-                pass
+            if not self.click_next(driver):
+                print("⚠️ No Next after password")
+            time.sleep(4)
             
-            # STEP 5: SKIP PHONE
+            # ========== STEP 5: SKIP PHONE ==========
             try:
-                driver.find_element(By.XPATH, "//span[text()='Skip']").click()
-                print("✅ Skipped phone")
+                skip_btn = driver.find_element(By.XPATH, "//span[text()='Skip']")
+                driver.execute_script("arguments[0].click();", skip_btn)
+                print("✅ Skipped phone verification")
                 time.sleep(2)
             except:
                 pass
             
-            # STEP 6: I AGREE
+            # ========== STEP 6: I AGREE ==========
             try:
-                driver.find_element(By.XPATH, "//span[text()='I agree']").click()
-                print("✅ Agreed")
+                agree_btn = driver.find_element(By.XPATH, "//span[text()='I agree']")
+                driver.execute_script("arguments[0].click();", agree_btn)
+                print("✅ Accepted terms")
                 time.sleep(3)
             except:
                 pass
             
-            # CHECK SUCCESS
+            # ========== CHECK SUCCESS ==========
             time.sleep(5)
             current_url = driver.current_url.lower()
-            if any(x in current_url for x in ['myaccount.google.com', 'accounts.google.com/signin']):
+            
+            if any(x in current_url for x in ['myaccount.google.com', 'accounts.google.com/signin', 'welcome']):
+                try:
+                    email_elem = driver.find_element(By.XPATH, "//div[contains(text(), '@gmail.com')]")
+                    info['email'] = email_elem.text.strip()
+                    print(f"📧 Google generated email: {info['email']}")
+                except:
+                    pass
+                
                 self.save_account(info)
-                self.success += 1
-                print(f"✅✅✅ SUCCESS: {info['email']}")
+                self.success = 1
+                print(f"\n✅✅✅ SUCCESS: {info['email']}")
                 return True
             else:
-                self.debug_page(driver, "final_failed")
-                print(f"❌ Failed: {current_url[:80]}")
-                self.failed += 1
+                print(f"\n❌ Failed - URL: {current_url[:100]}")
                 return False
                 
         except Exception as e:
-            print(f"❌ Error: {str(e)[:100]}")
-            self.failed += 1
+            print(f"\n❌ Error: {str(e)[:200]}")
             return False
         finally:
             if driver:
@@ -335,16 +347,25 @@ class StealthAccountFactory:
             json.dump(accounts, f, indent=2)
         with open('accounts.csv', 'a') as f:
             f.write(f"{info['email']},{info['password']}\n")
+        print(f"💾 Account saved")
 
-    def run(self, count=5):
-        print(f"\n🔥 Creating {count} accounts")
+    def run(self, count=1):
+        print(f"\n{'='*60}")
+        print(f"🔥 MEMBUAT {count} AKUN PER HARI")
+        print(f"{'='*60}")
+        
         for i in range(count):
-            print(f"\n📌 {i+1}/{count} | ✅ {self.success} | ❌ {self.failed}")
-            self.create_account()
-            if i < count - 1:
-                time.sleep(random.uniform(60, 120))
-        print(f"\n🏁 Done! ✅ {self.success} | ❌ {self.failed}")
+            print(f"\n📌 Akun ke-{i+1}/{count}")
+            success = self.create_account()
+            if success:
+                self.success += 1
+            else:
+                self.failed += 1
+        
+        print(f"\n{'='*60}")
+        print(f"🏁 SELESAI! ✅ Berhasil: {self.success} | ❌ Gagal: {self.failed}")
+        print(f"{'='*60}")
 
 if __name__ == "__main__":
     factory = StealthAccountFactory()
-    factory.run(count=getattr(config, 'TARGET_AKUN_PER_HARI', 5))
+    factory.run(count=config.TARGET_AKUN_PER_HARI)
